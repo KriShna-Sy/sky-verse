@@ -39,4 +39,10 @@ object AppModule {
     fun provideContextAwarenessEngine(@ApplicationContext context: Context): ContextAwarenessEngine {
         return ContextAwarenessEngine(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideSkyOrchestrator(@ApplicationContext context: Context): com.skyverse.app.core.ai.SkyOrchestrator {
+        return com.skyverse.app.core.ai.SkyOrchestrator(context)
+    }
 }

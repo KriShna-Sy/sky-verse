@@ -26,11 +26,13 @@ android {
             abiFilters.add("armeabi-v7a")
         }
         
+/*
         externalNativeBuild {
             cmake {
                 cppFlags += ""
             }
         }
+*/
     }
 
     buildTypes {
@@ -43,12 +45,14 @@ android {
         }
     }
     
+/*
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1+"
         }
     }
+*/
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

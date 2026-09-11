@@ -15,11 +15,11 @@ enum class TalkState {
     IDLE, LISTENING, THINKING, SPEAKING, ERROR
 }
 
-data class ChatMessage(val isUser: Boolean, val text: String)
+data class TalkMessage(val isUser: Boolean, val text: String)
 
 data class TalkUiState(
     val state: TalkState = TalkState.IDLE,
-    val history: List<ChatMessage> = emptyList(),
+    val history: List<TalkMessage> = emptyList(),
     val currentResponse: SkyResponse? = null
 )
 
@@ -34,7 +34,7 @@ class TalkViewModel @Inject constructor(
     fun processQuery(query: String) {
         if (query.isBlank()) return
         
-        val newHistory = _uiState.value.history + ChatMessage(isUser = true, text = query)
+        val newHistory = _uiState.value.history + TalkMessage(isUser = true, text = query)
         _uiState.value = _uiState.value.copy(
             state = TalkState.THINKING,
             history = newHistory
@@ -47,7 +47,7 @@ class TalkViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     state = TalkState.SPEAKING,
                     currentResponse = response,
-                    history = _uiState.value.history + ChatMessage(isUser = false, text = response.text)
+                    history = _uiState.value.history + TalkMessage(isUser = false, text = response.text)
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(state = TalkState.ERROR)

@@ -7,7 +7,6 @@ import com.skyverse.app.core.memory.MemoryManager
 import com.skyverse.app.core.security.SecurityPolicyManager
 import com.skyverse.app.core.vision.LocalVisionEngine
 import com.skyverse.app.core.voice.SpeakerVerificationEngine
-import com.skyverse.app.core.voice.VerificationResult
 import com.skyverse.app.tools.ToolManager
 
 data class SkyResponse(
@@ -17,7 +16,6 @@ data class SkyResponse(
     val isDeterministic: Boolean,
     val executionTimeMs: Long,
     val tokensPerSecond: Float = 0f,
-    val verificationResult: VerificationResult? = null
 )
 
 class SkyOrchestrator(private val context: Context) {
@@ -42,18 +40,17 @@ class SkyOrchestrator(private val context: Context) {
         val lower = query.lowercase().trim()
 
         // 1. Speaker Verification Check
-        val sampleEmbedding = speakerVerificationEngine.generateSimulatedSampleEmbedding(isKriShna = simulateSpeakerMatch)
-        val verification = speakerVerificationEngine.verifyAudioSample(sampleEmbedding)
+        val verification = speakerVerificationEngine.verifySpeaker(FloatArray(0))
+        val isVerified = simulateSpeakerMatch || verification
 
-        if (!verification.isVerified) {
-            val rejectionMessage = "Voice biometric mismatch (${(verification.matchConfidence * 100).toInt()}% match). Sky is customized to respond ONLY to KriShna's voice."
+        if (!isVerified) {
+            val rejectionMessage = "Voice biometric mismatch. Sky is customized to respond ONLY to KriShna's voice."
             return SkyResponse(
                 text = "⛔ SPEAKER BIOMETRIC LOCK\n$rejectionMessage",
                 spokenText = "Voice mismatch detected. I am customized to respond only to KriShna.",
                 intentType = IntentType.PRIVACY_QUERY,
                 isDeterministic = true,
                 executionTimeMs = System.currentTimeMillis() - startTime,
-                verificationResult = verification
             )
         }
 
@@ -85,7 +82,6 @@ class SkyOrchestrator(private val context: Context) {
                         intentType = parsedIntent.type,
                         isDeterministic = true,
                         executionTimeMs = System.currentTimeMillis() - startTime,
-                        verificationResult = verification
                     )
                 } else {
                     SkyResponse(
@@ -94,7 +90,6 @@ class SkyOrchestrator(private val context: Context) {
                         intentType = parsedIntent.type,
                         isDeterministic = true,
                         executionTimeMs = System.currentTimeMillis() - startTime,
-                        verificationResult = verification
                     )
                 }
             }
@@ -107,7 +102,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.PRONOUN_ACTION -> {
@@ -123,7 +117,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.MEDIA_PLAY -> {
@@ -134,7 +127,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.SYSTEM_SETTINGS -> {
@@ -145,7 +137,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.ACTION_CONFIRMATION -> {
@@ -161,7 +152,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.BATTERY_QUERY -> {
@@ -172,7 +162,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.FLASHLIGHT_ON -> {
@@ -183,7 +172,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.FLASHLIGHT_OFF -> {
@@ -194,7 +182,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.DEVICE_INFO -> {
@@ -205,7 +192,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.APP_LAUNCH -> {
@@ -217,7 +203,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.MEMORY_REMEMBER -> {
@@ -234,7 +219,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.MEMORY_QUERY -> {
@@ -250,7 +234,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.MEMORY_FORGET -> {
@@ -262,7 +245,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.PRIVACY_QUERY -> {
@@ -273,7 +255,6 @@ class SkyOrchestrator(private val context: Context) {
                     intentType = parsedIntent.type,
                     isDeterministic = true,
                     executionTimeMs = System.currentTimeMillis() - startTime,
-                    verificationResult = verification
                 )
             }
             IntentType.LLM_REASONING -> {
@@ -286,7 +267,6 @@ class SkyOrchestrator(private val context: Context) {
                     isDeterministic = false,
                     executionTimeMs = System.currentTimeMillis() - startTime,
                     tokensPerSecond = 24.5f,
-                    verificationResult = verification
                 )
             }
         }
