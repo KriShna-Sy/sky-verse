@@ -7,14 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -23,13 +19,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.skyverse.app.features.benchmark.PerformanceDashboardScreen
 import com.skyverse.app.features.home.HomeScreen
 import com.skyverse.app.features.memory.MemoryScreen
@@ -43,18 +40,23 @@ import com.skyverse.app.ui.theme.DarkSurface
 import com.skyverse.app.ui.theme.DeepSpaceBlue
 import com.skyverse.app.ui.theme.MidnightNavy
 import com.skyverse.app.ui.theme.SkyVerseTheme
+import dagger.hilt.android.AndroidEntryPoint
 
 sealed class NavScreen(val route: String, val label: String, val icon: ImageVector) {
     object Home : NavScreen("home", "Home", Icons.Default.Home)
     object Talk : NavScreen("talk", "Talk", Icons.Default.Mic)
-    object VoiceProfile : NavScreen("voice", "Voice", Icons.Default.Fingerprint)
     object Memory : NavScreen("memory", "Memory", Icons.Default.Psychology)
-    object Skills : NavScreen("skills", "Skills", Icons.Default.Build)
-    object Privacy : NavScreen("privacy", "Privacy", Icons.Default.Shield)
-    object Settings : NavScreen("settings", "Settings", Icons.Default.Settings)
-    object Benchmark : NavScreen("benchmark", "Perf", Icons.Default.Speed)
+    object More : NavScreen("more", "More", Icons.Default.Menu)
+    
+    // Sub-screens
+    object VoiceProfile : NavScreen("voice", "Voice", Icons.Default.Menu)
+    object Skills : NavScreen("skills", "Skills", Icons.Default.Menu)
+    object Privacy : NavScreen("privacy", "Privacy", Icons.Default.Menu)
+    object Settings : NavScreen("settings", "Settings", Icons.Default.Menu)
+    object Benchmark : NavScreen("benchmark", "Perf", Icons.Default.Menu)
 }
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,18 +70,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContainer() {
-    var currentRoute by remember { mutableStateOf(NavScreen.Home.route) }
-    var initialTalkQuery by remember { mutableStateOf<String?>(null) }
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: NavScreen.Home.route
 
-    val navItems = listOf(
+    val bottomNavItems = listOf(
         NavScreen.Home,
         NavScreen.Talk,
-        NavScreen.VoiceProfile,
         NavScreen.Memory,
-        NavScreen.Skills,
-        NavScreen.Privacy,
-        NavScreen.Settings,
-        NavScreen.Benchmark
+        NavScreen.More
     )
 
     Scaffold(
@@ -88,14 +87,17 @@ fun MainAppContainer() {
                 containerColor = DarkSurface,
                 tonalElevation = 8.dp
             ) {
-                navItems.forEach { screen ->
+                bottomNavItems.forEach { screen ->
                     val isSelected = currentRoute == screen.route
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = {
-                            currentRoute = screen.route
-                            if (screen.route != NavScreen.Talk.route) {
-                                initialTalkQuery = null
+                            if (!isSelected) {
+                                navController.navigate(screen.route) {
+                                    popUpTo(NavScreen.Home.route) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         icon = {
@@ -125,26 +127,37 @@ fun MainAppContainer() {
                 .padding(innerPadding)
                 .background(MidnightNavy)
         ) {
-            when (currentRoute) {
-                NavScreen.Home.route -> HomeScreen(
-                    onNavigateToTalk = { query ->
-                        initialTalkQuery = query
-                        currentRoute = NavScreen.Talk.route
-                    },
-                    onNavigateToPrivacy = {
-                        currentRoute = NavScreen.Privacy.route
-                    }
-                )
-                NavScreen.Talk.route -> TalkScreen(
-                    initialQuery = initialTalkQuery,
-                    onBack = { currentRoute = NavScreen.Home.route }
-                )
-                NavScreen.VoiceProfile.route -> VoiceProfileScreen()
-                NavScreen.Memory.route -> MemoryScreen()
-                NavScreen.Skills.route -> SkillsScreen()
-                NavScreen.Privacy.route -> PrivacyDashboardScreen()
-                NavScreen.Settings.route -> SettingsScreen()
-                NavScreen.Benchmark.route -> PerformanceDashboardScreen()
+            NavHost(navController = navController, startDestination = NavScreen.Home.route) {
+                composable(NavScreen.Home.route) {
+                    HomeScreen(
+                        onNavigateToTalk = { query ->
+                            navController.currentBackStackEntry?.savedStateHandle?.set("initialQuery", query)
+                            navController.navigate(NavScreen.Talk.route)
+                        },
+                        onNavigateToPrivacy = {
+                            navController.navigate(NavScreen.Privacy.route)
+                        }
+                    )
+                }
+                composable(NavScreen.Talk.route) { backStackEntry ->
+                    val initialQuery = backStackEntry.savedStateHandle.get<String>("initialQuery")
+                    TalkScreen(
+                        initialQuery = initialQuery,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(NavScreen.Memory.route) {
+                    MemoryScreen()
+                }
+                composable(NavScreen.More.route) {
+                    SettingsScreen()
+                }
+                
+                // Sub-screens
+                composable(NavScreen.VoiceProfile.route) { VoiceProfileScreen() }
+                composable(NavScreen.Skills.route) { SkillsScreen() }
+                composable(NavScreen.Privacy.route) { PrivacyDashboardScreen() }
+                composable(NavScreen.Benchmark.route) { PerformanceDashboardScreen() }
             }
         }
     }
