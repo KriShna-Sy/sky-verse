@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sky Verse</string>
+    <string name="accessibility_service_description">Sky Verse Automated UI Accessibility Assistant for auto-skipping ads and performing on-screen gestures on behalf of KriShna.</string>
+</resources>

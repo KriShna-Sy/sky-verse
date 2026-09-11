@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sky Verse — Private Offline Personal AI Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-navy: #0b132b;
+      --surface-dark: #0f172a;
+      --card-bg: #1c2541;
+      --card-border: #3a506b;
+      --primary-cyan: #48cae4;
+      --electric-blue: #00b4d8;
+      --soft-cyan: #90e0ef;
+      --gold-accent: #ffd166;
+      --success-green: #10b981;
+      --danger-red: #ef4444;
+      --text-main: #ffffff;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: #050914;
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    /* Mobile Device Frame Mockup */
+    .device-wrapper {
+      width: 100%;
+      max-width: 440px;
+      height: 870px;
+      background: var(--bg-navy);
+      border-radius: 44px;
+      box-shadow: 0 25px 60px rgba(0, 180, 216, 0.25), 0 0 0 12px #151d33, 0 0 0 14px #0b132b;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(72, 202, 228, 0.3);
+    }
+
+    /* Status Bar */
+    .status-bar {
+      padding: 14px 24px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      z-index: 10;
+    }
+
+    .airplane-mode-tag {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success-green);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: 1.5px;
+      color: var(--text-main);
+    }
+
+    .cloud-icon {
+      color: var(--primary-cyan);
+      font-size: 22px;
+    }
+
+    /* Main Content Area */
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-area::-webkit-scrollbar {
+      width: 4px;
+    }
+    .content-area::-webkit-scrollbar-thumb {
+      background: var(--card-border);
+      border-radius: 4px;
+    }
+
+    /* Views */
+    .view-panel {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+    }
+    .view-panel.active {
+      display: flex;
+    }
+
+    /* Home View Elements */
+    .greeting-box {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .greeting-sub {
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+
+    .greeting-name {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--text-main);
+      background: linear-gradient(135deg, #ffffff 40%, var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Glowing Orb Button */
+    .orb-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 25px 0;
+    }
+
+    .orb-pulse-wrapper {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 180, 216, 0.4) 0%, rgba(72, 202, 228, 0.1) 60%, transparent 75%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      animation: pulse 2.5s infinite ease-in-out;
+      transition: transform 0.2s;
+    }
+
+    .orb-pulse-wrapper:hover {
+      transform: scale(1.05);
+    }
+
+    .orb-core {
+      width: 105px;
+      height: 105px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--electric-blue), var(--card-border));
+      border: 3px solid var(--primary-cyan);
+      box-shadow: 0 0 30px var(--electric-blue), inset 0 0 15px var(--soft-cyan);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 38px;
+      color: white;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(72, 202, 228, 0.4); }
+      50% { transform: scale(1.06); box-shadow: 0 0 35px 10px rgba(0, 180, 216, 0.6); }
+      100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(72, 202, 228, 0.4); }
+    }
+
+    /* Cards & Chips */
+    .quick-card-container {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .chip-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .chip-item:hover {
+      border-color: var(--primary-cyan);
+      background: rgba(72, 202, 228, 0.1);
+    }
+
+    /* Talk View Messages */
+    .chat-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 4px;
+    }
+
+    .msg-bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .msg-user {
+      align-self: flex-end;
+      background: var(--card-border);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-sky {
+      align-self: flex-start;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: white;
+      border-bottom-left-radius: 4px;
+    }
+
+    .intent-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+      margin-top: 8px;
+    }
+
+    .pill-deterministic {
+      background: rgba(255, 209, 102, 0.15);
+      color: var(--gold-accent);
+      border: 1px solid rgba(255, 209, 102, 0.4);
+    }
+
+    .pill-llm {
+      background: rgba(72, 202, 228, 0.15);
+      color: var(--primary-cyan);
+      border: 1px solid rgba(72, 202, 228, 0.4);
+    }
+
+    .pill-rejected {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger-red);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    /* Input Bar */
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 12px 16px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+    }
+    .chat-input:focus {
+      border-color: var(--primary-cyan);
+    }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--electric-blue);
+      border: none;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Memory / Privacy List Styling */
+    .card-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--primary-cyan);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .row-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+    }
+    .row-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Navigation Bar */
+    .nav-bar {
+      background: var(--surface-dark);
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .nav-btn.active {
+      color: var(--primary-cyan);
+    }
+
+    .nav-icon {
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="device-wrapper">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>22:33</span>
+      <div class="airplane-mode-tag">
+        <span>🔒</span> LOCAL MODE (AIRPLANE MODE)
+      </div>
+      <span>100% 🔋</span>
+    </div>
+
+    <!-- Header -->
+    <div class="header-bar">
+      <div class="brand-title">
+        <span class="cloud-icon">☁️</span> SKY VERSE
+      </div>
+      <span style="font-size: 11px; color: var(--success-green); font-weight: 700;">● VOICE LOCKED</span>
+    </div>
+
+    <!-- Content Panel Container -->
+    <div class="content-area">
+
+      <!-- 1. HOME VIEW -->
+      <div id="view-home" class="view-panel active">
+        <div class="greeting-box">
+          <div class="greeting-sub">Good evening,</div>
+          <div class="greeting-name">KriShna.</div>
+        </div>
+
+        <div class="orb-container">
+          <div class="orb-pulse-wrapper" onclick="switchTab('talk')">
+            <div class="orb-core">☁️</div>
+          </div>
+          <div style="margin-top: 12px; font-weight: 600; color: var(--primary-cyan);">"Talk to Sky"</div>
+          <div style="font-size: 12px; color: var(--text-muted);">Voice Authenticated to KriShna</div>
+        </div>
+
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">Quick Deterministic Commands</div>
+        <div class="quick-card-container">
+          <div class="chip-item" onclick="triggerQuickQuery('What\'s my battery?')">⚡ What's my battery?</div>
+          <div class="chip-item" onclick="triggerQuickQuery('Turn on flashlight')">💡 Turn on flashlight</div>
+          <div class="chip-item" onclick="triggerQuickQuery('What do you remember about me?')">🧠 Stored Memories</div>
+          <div class="chip-item" onclick="switchTab('voice')">🗣️ Voice Customization</div>
+        </div>
+      </div>
+
+      <!-- 2. TALK VIEW -->
+      <div id="view-talk" class="view-panel">
+        <div class="chat-list" id="chatList">
+          <div class="msg-bubble msg-sky">
+            Hello, KriShna. Voice Biometric Lock is active. Sky responds ONLY to your voice.
+          </div>
+        </div>
+
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" class="chat-input" placeholder="Speak or type command..." onkeypress="handleKeyPress(event)" />
+          <button class="send-btn" onclick="sendQuery(true)">➔</button>
+        </div>
+      </div>
+
+      <!-- 3. VOICE LOCK & CUSTOMIZATION VIEW -->
+      <div id="view-voice" class="view-panel">
+        <div class="card-box">
+          <div class="card-title">🗣️ Speaker Customization & Biometric Lock</div>
+          <div class="row-item"><span>Primary Speaker Profile</span><strong style="color: var(--success-green);">KriShna ✓</strong></div>
+          <div class="row-item"><span>Biometric Lock Status</span><strong style="color: var(--primary-cyan);">ACTIVE (Responds ONLY to KriShna)</strong></div>
+          <div class="row-item"><span>Cosine Match Threshold</span><strong style="color: var(--gold-accent);">78.0% Similarity</strong></div>
+        </div>
+
+        <div class="card-box">
+          <div class="card-title">VOICE AUTHENTICATION TEST BENCH</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Test how Sky verifies KriShna vs an unauthorized voice.</div>
+          
+          <div style="display: flex; gap: 8px;">
+            <button style="flex: 1; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success-green); color: var(--success-green); padding: 10px; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="testVoiceMatch(true)">
+              🗣️ Speak as KriShna
+            </button>
+            <button style="flex: 1; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger-red); color: var(--danger-red); padding: 10px; border-radius: 12px; font-weight: 700; cursor: pointer;" onclick="testVoiceMatch(false)">
+              👤 Unknown Voice
+            </button>
+          </div>
+        </div>
+
+        <div id="voiceTestOutput" class="card-box" style="display: none;">
+          <div class="card-title" id="voiceTestTitle">BIOMETRIC RESULT</div>
+          <div id="voiceTestBody" style="font-size: 13px;"></div>
+        </div>
+      </div>
+
+      <!-- 4. MEMORY VIEW -->
+      <div id="view-memory" class="view-panel">
+        <div class="card-box">
+          <div class="card-title">Sky Selective Memory (SQLite / Room)</div>
+          
+          <div class="row-item">
+            <div>
+              <strong style="color: var(--primary-cyan);">User Preferred Name</strong><br>
+              <span style="color: white;">KriShna</span>
+            </div>
+            <button style="background: none; border: 1px solid var(--card-border); color: white; padding: 4px 8px; border-radius: 8px;" onclick="deleteMem(this)">Delete</button>
+          </div>
+          <div class="row-item">
+            <div>
+              <strong style="color: var(--primary-cyan);">Voice Biometric Print</strong><br>
+              <span style="color: white;">128-dim Enrolled Voice Vector (KriShna)</span>
+            </div>
+            <button style="background: none; border: 1px solid var(--card-border); color: white; padding: 4px 8px; border-radius: 8px;" onclick="deleteMem(this)">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. SKILLS / TOOLS VIEW -->
+      <div id="view-skills" class="view-panel">
+        <div class="card-box">
+          <div class="card-title">Deterministic Android Tools (Zero LLM Overhead)</div>
+          
+          <div class="row-item" onclick="testTool('Battery', 'Your battery level is 78% and operating on local power.')">
+            <div>
+              <strong>🔋 Battery Tool</strong><br>
+              <span style="font-size: 11px; color: var(--text-muted);">Direct Android BatteryManager API</span>
+            </div>
+            <span style="color: var(--primary-cyan); font-weight: 700;">TEST</span>
+          </div>
+          <div class="row-item" onclick="testTool('Flashlight', 'Flashlight toggled on successfully.')">
+            <div>
+              <strong>💡 Flashlight Tool</strong><br>
+              <span style="font-size: 11px; color: var(--text-muted);">CameraManager Torch API</span>
+            </div>
+            <span style="color: var(--primary-cyan); font-weight: 700;">TEST</span>
+          </div>
+        </div>
+
+        <div id="toolResultCard" class="card-box" style="display: none; border-color: var(--gold-accent);">
+          <div class="card-title" style="color: var(--gold-accent);">TOOL OUTPUT</div>
+          <div id="toolResultContent" style="font-size: 13px;"></div>
+        </div>
+      </div>
+
+      <!-- 6. PRIVACY DASHBOARD -->
+      <div id="view-privacy" class="view-panel">
+        <div class="card-box">
+          <div class="card-title" style="color: var(--success-green);">🛡️ Privacy & Voice Security Guarantee</div>
+          <div class="row-item"><span>Speaker Lock</span><strong style="color: var(--success-green);">LOCKED TO KRISHNA</strong></div>
+          <div class="row-item"><span>Internet Permission</span><strong style="color: var(--success-green);">ABSENT (OFF)</strong></div>
+          <div class="row-item"><span>Cloud AI Fallbacks</span><strong style="color: var(--success-green);">DISABLED</strong></div>
+          <div class="row-item"><span>Telemetry & Tracking</span><strong style="color: var(--success-green);">NONE</strong></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+      <button class="nav-btn active" onclick="switchTab('home')">
+        <span class="nav-icon">🏠</span>
+        <span>Home</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('talk')">
+        <span class="nav-icon">🎙️</span>
+        <span>Talk</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('voice')">
+        <span class="nav-icon">🗣️</span>
+        <span>Voice Lock</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('memory')">
+        <span class="nav-icon">🧠</span>
+        <span>Memory</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('skills')">
+        <span class="nav-icon">🛠️</span>
+        <span>Skills</span>
+      </button>
+      <button class="nav-btn" onclick="switchTab('privacy')">
+        <span class="nav-icon">🛡️</span>
+        <span>Privacy</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      
+      const activeView = document.getElementById('view-' + tabId);
+      if (activeView) activeView.classList.add('active');
+      
+      const navBtns = document.querySelectorAll('.nav-btn');
+      if (tabId === 'home') navBtns[0].classList.add('active');
+      if (tabId === 'talk') navBtns[1].classList.add('active');
+      if (tabId === 'voice') navBtns[2].classList.add('active');
+      if (tabId === 'memory') navBtns[3].classList.add('active');
+      if (tabId === 'skills') navBtns[4].classList.add('active');
+      if (tabId === 'privacy') navBtns[5].classList.add('active');
+    }
+
+    function triggerQuickQuery(query) {
+      switchTab('talk');
+      document.getElementById('chatInput').value = query;
+      sendQuery(true);
+    }
+
+    function testVoiceMatch(isKriShna) {
+      const outputCard = document.getElementById('voiceTestOutput');
+      const outputTitle = document.getElementById('voiceTestTitle');
+      const outputBody = document.getElementById('voiceTestBody');
+      outputCard.style.display = 'block';
+
+      if (isKriShna) {
+        outputTitle.style.color = '#10b981';
+        outputTitle.innerText = "VOICE VERIFIED ✓ (KriShna)";
+        outputBody.innerHTML = "• Acoustic Cosine Match: <strong>95.8%</strong> (Threshold: 78.0%)<br>• Access Granted. Commands accepted.";
+        triggerQuickQuery("What's my battery?");
+      } else {
+        outputTitle.style.color = '#ef4444';
+        outputTitle.innerText = "ACCESS DENIED ⛔ (UNAUTHORIZED VOICE)";
+        outputBody.innerHTML = "• Acoustic Cosine Match: <strong>26.2%</strong> (Threshold: 78.0%)<br>• <strong>Sky responded:</strong> \"Voice biometric mismatch. I am customized to respond ONLY to KriShna's voice.\"";
+        sendQuery(false);
+      }
+    }
+
+    function sendQuery(isKriShna = true) {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim() || (isKriShna ? "What's my battery level?" : "Sky, open settings.");
+
+      const chatList = document.getElementById('chatList');
+      
+      const userMsg = document.createElement('div');
+      userMsg.className = 'msg-bubble msg-user';
+      userMsg.innerText = (isKriShna ? "🗣️ [KriShna]: " : "👤 [Unknown Voice]: ") + text;
+      chatList.appendChild(userMsg);
+
+      input.value = '';
+      chatList.scrollTop = chatList.scrollHeight;
+
+      setTimeout(() => {
+        const skyMsg = document.createElement('div');
+        skyMsg.className = 'msg-bubble msg-sky';
+
+        if (!isKriShna) {
+          skyMsg.innerHTML = "<div><strong>⛔ Voice Lock Triggered:</strong> Acoustic biometric mismatch (26.2% similarity). Sky is customized to respond ONLY to KriShna's voice.</div>";
+          const pill = document.createElement('div');
+          pill.className = 'intent-pill pill-rejected';
+          pill.innerHTML = `⛔ REJECTED (UNAUTHORIZED SPEAKER)`;
+          skyMsg.appendChild(pill);
+        } else {
+          const lower = text.toLowerCase();
+          let replyText = "Your battery level is 78% and operating on local power.";
+          if (lower.includes("flashlight")) replyText = "Flashlight toggled on successfully.";
+          if (lower.includes("remember")) replyText = "I have recorded that to your local memory, KriShna.";
+
+          skyMsg.innerHTML = `<div>${replyText}</div>`;
+          const pill = document.createElement('div');
+          pill.className = 'intent-pill pill-deterministic';
+          pill.innerHTML = `⚡ VERIFIED (KriShna) • 14ms`;
+          skyMsg.appendChild(pill);
+
+          if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(replyText);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.05;
+            window.speechSynthesis.speak(utterance);
+          }
+        }
+
+        chatList.appendChild(skyMsg);
+        chatList.scrollTop = chatList.scrollHeight;
+      }, 400);
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendQuery(true);
+    }
+
+    function testTool(name, output) {
+      const card = document.getElementById('toolResultCard');
+      const content = document.getElementById('toolResultContent');
+      card.style.display = 'block';
+      content.innerText = `[${name}] -> ${output}`;
+    }
+
+    function deleteMem(btn) {
+      btn.parentElement.remove();
+    }
+  </script>
+</body>
+</html>
