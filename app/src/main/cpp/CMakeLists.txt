@@ -5,7 +5,8 @@ project("skyverse_jni")
 add_library(
         skyverse_jni
         SHARED
-        llama_jni.cpp)
+        llama_jni.cpp
+        whisper_jni.cpp)
 
 find_library(
         log-lib
