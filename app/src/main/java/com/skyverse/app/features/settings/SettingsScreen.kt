@@ -1,5 +1,7 @@
 package com.skyverse.app.features.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -57,8 +60,22 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val memoryManager = remember { MemoryManager(context) }
-    val modelManager = remember { LocalModelManager() }
-    val installedModels = remember { modelManager.getInstalledModels() }
+    val modelManager = remember { LocalModelManager(context) }
+    var installedModels by remember { mutableStateOf(modelManager.getInstalledModels()) }
+    var importStatus by remember { mutableStateOf<String?>(null) }
+    val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            importStatus = "Importing… (large files take a minute)"
+            scope.launch {
+                importStatus = modelManager.importModel(uri).fold(
+                    onSuccess = { "Imported ${it.name} — it is now the active model." },
+                    onFailure = { "Import failed: ${it.message}" }
+                )
+                com.skyverse.app.core.ai.LlamaEngine.unload()
+                installedModels = modelManager.getInstalledModels()
+            }
+        }
+    }
 
     var userName by remember { mutableStateOf("KriShna") }
     var selectedProactiveIndex by remember { mutableIntStateOf(1) } // 0=OFF, 1=LOW, 2=BALANCED, 3=HIGH
@@ -226,10 +243,23 @@ fun SettingsScreen() {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                if (installedModels.isEmpty()) {
+                    Text(
+                        text = "No GGUF model found. Import one below, or run:\nadb push model.gguf ${modelManager.modelDirs().first().absolutePath}/",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+
                 installedModels.forEach { model ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable {
+                                modelManager.setActiveModel(model.path)
+                                com.skyverse.app.core.ai.LlamaEngine.unload()
+                                installedModels = modelManager.getInstalledModels()
+                            }
                             .padding(vertical = 6.dp)
                     ) {
                         Row(
@@ -237,10 +267,24 @@ fun SettingsScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = model.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                            Text(text = "STATUS: ${model.status}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentSuccess)
+                            Text(
+                                text = if (model.isActive) "● ACTIVE" else "TAP TO USE",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (model.isActive) AccentSuccess else Color.Gray
+                            )
                         }
-                        Text(text = "${model.quantization} • ${model.sizeMb}MB RAM", fontSize = 12.sp, color = Color.Gray)
+                        Text(text = "${model.quantization} • ${model.sizeMb}MB", fontSize = 12.sp, color = Color.Gray)
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(onClick = { modelPicker.launch(arrayOf("application/octet-stream", "*/*")) }) {
+                    Text("Import model (.gguf)", color = CyanHighlight)
+                }
+                importStatus?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = it, fontSize = 12.sp, color = Color.Gray)
                 }
             }
         }

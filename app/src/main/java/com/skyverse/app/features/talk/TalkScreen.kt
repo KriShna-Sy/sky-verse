@@ -1,5 +1,9 @@
 package com.skyverse.app.features.talk
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -31,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -39,6 +44,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -59,6 +65,8 @@ import androidx.compose.ui.unit.sp
 import com.skyverse.app.core.ai.SkyOrchestrator
 import com.skyverse.app.core.ai.SkyResponse
 import com.skyverse.app.core.voice.SkyVoicePipeline
+import com.skyverse.app.core.voice.SpeechInput
+import androidx.core.content.ContextCompat
 import com.skyverse.app.ui.theme.AccentSuccess
 import com.skyverse.app.ui.theme.CelestialGold
 import com.skyverse.app.ui.theme.CyanHighlight
@@ -81,8 +89,9 @@ fun TalkScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val orchestrator = remember { SkyOrchestrator(context) }
+    val orchestrator = remember { SkyOrchestrator(context.applicationContext) }
     val voicePipeline = remember { SkyVoicePipeline(context) }
+    val speechInput = remember { SpeechInput(context) }
 
     val chatMessages = remember {
         mutableStateListOf(
@@ -95,6 +104,8 @@ fun TalkScreen(
 
     var inputText by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
+    var isListening by remember { mutableStateOf(false) }
+    var statusNote by remember { mutableStateOf<String?>(null) }
 
     val infiniteTransition = rememberInfiniteTransition(label = "orbPulse")
     val orbScale by infiniteTransition.animateFloat(
@@ -108,22 +119,60 @@ fun TalkScreen(
     )
 
     fun handleSend(query: String) {
-        if (query.isBlank()) return
+        if (query.isBlank() || isThinking) return
+        voicePipeline.stopSpeaking()
         chatMessages.add(ChatMessage("USER", query))
         inputText = ""
+        statusNote = null
         isThinking = true
 
+        // Placeholder bubble that fills in token-by-token for LLM answers
+        chatMessages.add(ChatMessage(sender = "SKY", text = "…"))
+        val idx = chatMessages.lastIndex
+
         scope.launch {
-            val skyResponse = orchestrator.processQuery(query)
-            chatMessages.add(
-                ChatMessage(
-                    sender = "SKY",
-                    text = skyResponse.text,
-                    responseMeta = skyResponse
-                )
-            )
+            val skyResponse = try {
+                orchestrator.processQuery(query) { partial ->
+                    if (idx < chatMessages.size) chatMessages[idx] = chatMessages[idx].copy(text = partial)
+                }
+            } catch (e: Exception) {
+                null
+            }
+            if (skyResponse != null) {
+                chatMessages[idx] = ChatMessage(sender = "SKY", text = skyResponse.text, responseMeta = skyResponse)
+                voicePipeline.speak(skyResponse.spokenText)
+            } else {
+                chatMessages[idx] = ChatMessage(sender = "SKY", text = "Something went wrong while processing that.")
+            }
             isThinking = false
-            voicePipeline.speak(skyResponse.spokenText)
+        }
+    }
+
+    // ---- Speech-to-text wiring ----
+    DisposableEffect(Unit) {
+        speechInput.onListeningChanged = { isListening = it }
+        speechInput.onPartial = { inputText = it }
+        speechInput.onFinal = { text -> handleSend(text) }
+        speechInput.onErrorMessage = { msg -> statusNote = msg }
+        onDispose {
+            speechInput.destroy()
+            voicePipeline.shutdown()
+        }
+    }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) speechInput.start() else statusNote = "Microphone permission denied."
+    }
+
+    fun toggleListening() {
+        if (isListening) { speechInput.stop(); return }
+        if (!speechInput.isAvailable) { statusNote = "No speech recognizer on this device."; return }
+        voicePipeline.stopSpeaking()
+        statusNote = null
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            speechInput.start()
+        } else {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -161,9 +210,18 @@ fun TalkScreen(
                     color = Color.White
                 )
                 Text(
-                    text = if (isThinking) "Sky is thinking..." else "● Listening for \"Hey Sky\"",
+                    text = when {
+                        isThinking -> "Sky is thinking..."
+                        isListening -> "● Listening… speak now"
+                        statusNote != null -> statusNote!!
+                        else -> "● Tap the mic to talk"
+                    },
                     fontSize = 12.sp,
-                    color = if (isThinking) CyanHighlight else AccentSuccess
+                    color = when {
+                        isThinking -> CyanHighlight
+                        statusNote != null && !isListening -> CelestialGold
+                        else -> AccentSuccess
+                    }
                 )
             }
         }
@@ -185,7 +243,7 @@ fun TalkScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .scale(if (isThinking) orbScale else 1.0f)
+                    .scale(if (isThinking || isListening) orbScale else 1.0f)
                     .size(64.dp)
                     .background(
                         brush = Brush.radialGradient(
@@ -350,11 +408,12 @@ fun TalkScreen(
 
             IconButton(
                 onClick = {
-                    if (inputText.isNotBlank()) {
+                    if (isListening) {
+                        speechInput.stop()
+                    } else if (inputText.isNotBlank()) {
                         handleSend(inputText)
                     } else {
-                        voicePipeline.startListening()
-                        handleSend("What's my battery?")
+                        toggleListening()
                     }
                 },
                 modifier = Modifier
@@ -362,7 +421,11 @@ fun TalkScreen(
                     .background(ElectricBlue, CircleShape)
             ) {
                 Icon(
-                    imageVector = if (inputText.isBlank()) Icons.Default.Mic else Icons.AutoMirrored.Filled.Send,
+                    imageVector = when {
+                        isListening -> Icons.Default.Stop
+                        inputText.isBlank() -> Icons.Default.Mic
+                        else -> Icons.AutoMirrored.Filled.Send
+                    },
                     contentDescription = "Send / Record",
                     tint = Color.White
                 )

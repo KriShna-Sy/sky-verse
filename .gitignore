@@ -7,3 +7,7 @@ models/
 *.gguf
 *.bin
 *.onnx
+
+# native
+app/.cxx/
+app/src/main/cpp/llama.cpp/

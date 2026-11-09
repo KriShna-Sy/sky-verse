@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.skyverse.app"
     compileSdk = 34
+    ndkVersion = "26.1.10909125"
 
     defaultConfig {
         applicationId = "com.skyverse.app"
@@ -22,17 +23,15 @@ android {
         }
 
         ndk {
-            abiFilters.add("arm64-v8a")
-            abiFilters.add("armeabi-v7a")
+            // arm64 = real phones, x86_64 = emulator. (32-bit ARM dropped: llama.cpp is too slow there.)
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
-        
-/*
+
         externalNativeBuild {
             cmake {
-                cppFlags += ""
+                arguments += "-DCMAKE_BUILD_TYPE=Release"  // llama.cpp is unusably slow at -O0, even in debug APKs
             }
         }
-*/
     }
 
     buildTypes {
@@ -45,14 +44,12 @@ android {
         }
     }
     
-/*
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1+"
+            version = "3.22.1"
         }
     }
-*/
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

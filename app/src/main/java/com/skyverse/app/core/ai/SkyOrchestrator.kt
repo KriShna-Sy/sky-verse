@@ -8,6 +8,7 @@ import com.skyverse.app.core.security.SecurityPolicyManager
 import com.skyverse.app.core.vision.LocalVisionEngine
 import com.skyverse.app.core.voice.SpeakerVerificationEngine
 import com.skyverse.app.tools.ToolManager
+import kotlinx.coroutines.CancellationException
 
 data class SkyResponse(
     val text: String,
@@ -18,11 +19,12 @@ data class SkyResponse(
     val tokensPerSecond: Float = 0f,
 )
 
-class SkyOrchestrator(private val context: Context) {
+class SkyOrchestrator(context: Context) {
+    private val context: Context = context.applicationContext
     private val intentRouter = IntentRouter()
     val toolManager = ToolManager(context)
     val memoryManager = MemoryManager(context)
-    private val llamaEngine = LocalLlamaInferenceEngine()
+    private val conversation = ConversationManager().apply { adjustMaxTurns(getDeviceRamTier(context)) }
     private val securityPolicy = SecurityPolicyManager()
     val speakerVerificationEngine = SpeakerVerificationEngine()
     val localVisionEngine = LocalVisionEngine(context)
@@ -34,7 +36,8 @@ class SkyOrchestrator(private val context: Context) {
 
     suspend fun processQuery(
         query: String,
-        simulateSpeakerMatch: Boolean = true
+        simulateSpeakerMatch: Boolean = true,
+        onPartial: (String) -> Unit = {}
     ): SkyResponse {
         val startTime = System.currentTimeMillis()
         val lower = query.lowercase().trim()
@@ -257,18 +260,62 @@ class SkyOrchestrator(private val context: Context) {
                     executionTimeMs = System.currentTimeMillis() - startTime,
                 )
             }
-            IntentType.LLM_REASONING -> {
-                val memCtx = memoryManager.getFormattedMemoryContext()
-                val llmText = llamaEngine.generateResponseSingle(query, memCtx)
-                SkyResponse(
-                    text = llmText,
-                    spokenText = llmText,
-                    intentType = parsedIntent.type,
-                    isDeterministic = false,
-                    executionTimeMs = System.currentTimeMillis() - startTime,
-                    tokensPerSecond = 24.5f,
-                )
-            }
+            IntentType.LLM_REASONING -> answerWithLlm(query, startTime, onPartial)
         }
     }
+
+    private suspend fun answerWithLlm(query: String, startTime: Long, onPartial: (String) -> Unit): SkyResponse {
+        when (val load = LlamaEngine.ensureLoaded(context)) {
+            is LlamaEngine.LoadResult.Failed -> {
+                return SkyResponse(
+                    text = "⚠️ Local model not ready\n${load.reason}",
+                    spokenText = "My local language model isn't installed yet, KriShna.",
+                    intentType = IntentType.LLM_REASONING,
+                    isDeterministic = false,
+                    executionTimeMs = System.currentTimeMillis() - startTime,
+                )
+            }
+            is LlamaEngine.LoadResult.Ready -> Unit
+        }
+
+        val memCtx = memoryManager.getFormattedMemoryContext()
+        val system = PromptBuilder.JARVIS_SYSTEM_PROMPT.trimIndent() +
+            "\nKeep answers under 4 sentences unless asked for detail." +
+            (if (memCtx.startsWith("User Memories")) "\n\n$memCtx" else "")
+
+        val messages = buildList {
+            add("system" to system)
+            conversation.getHistory().forEach { (u, a) -> add("user" to u); add("assistant" to a) }
+            add("user" to query)
+        }
+
+        val sb = StringBuilder()
+        var pieces = 0
+        val genStart = System.currentTimeMillis()
+        try {
+            LlamaEngine.generate(messages, maxTokens = 256).collect { piece ->
+                sb.append(piece)
+                pieces++
+                onPartial(sb.toString())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            sb.append("\n[generation error: ${e.message}]")
+        }
+        val genSecs = (System.currentTimeMillis() - genStart) / 1000f
+        val answer = sb.toString().trim().ifEmpty { "…" }
+        conversation.addTurn(query, answer)
+
+        return SkyResponse(
+            text = answer,
+            spokenText = answer,
+            intentType = IntentType.LLM_REASONING,
+            isDeterministic = false,
+            executionTimeMs = System.currentTimeMillis() - startTime,
+            tokensPerSecond = if (genSecs > 0f) (pieces / genSecs * 10).toInt() / 10f else 0f,
+        )
+    }
+
+    fun clearConversation() = conversation.clearHistory()
 }
